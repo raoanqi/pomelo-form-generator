@@ -96,13 +96,13 @@
         </el-row>
       </el-scrollbar>
     </div>
-    <!--    <right-panel-->
-    <!--      :active-data="activeData"-->
-    <!--      :form-conf="formConfig"-->
-    <!--      :show-field="!!drawingList.length"-->
-    <!--      @tag-change="tagChange"-->
-    <!--      @fetch-data="fetchData"-->
-    <!--    />-->
+    <right-panel
+      :active-data="activeData"
+      :form-conf="formConfig"
+      :show-field="!!drawingList.length"
+      @tag-change="tagChange"
+      @fetch-data="fetchData"
+    />
     <!--    <form-drawer-->
     <!--      :visible.sync="drawerVisible"-->
     <!--      :form-data="formData"-->

@@ -65,14 +65,14 @@
   height: 100vh;
 }
 
-.left-scrollbar {
-  height: calc(100vh - 42px);
-  overflow: hidden;
-}
+//.left-scrollbar {
+//  height: calc(100vh - 42px);
+//  overflow: hidden;
+//}
 
 .center-scrollbar {
-  height: calc(100vh - 42px);
-  overflow: hidden;
+  //height: calc(100vh - 42px);
+  //overflow: hidden;
   border-left: 1px solid #f1e8e8;
   border-right: 1px solid #f1e8e8;
   box-sizing: border-box;
