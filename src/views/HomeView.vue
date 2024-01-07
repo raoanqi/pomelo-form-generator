@@ -36,10 +36,8 @@
     </div>
     <div class="center-board">
       <div class="action-bar">
-        <el-button icon="el-icon-video-play" type="text" @click="run"> 在浏览器中运行</el-button>
-        <!--        <el-button icon="el-icon-view" type="text" @click="showJson"> 查看json</el-button>-->
         <el-button icon="el-icon-download" type="text" @click="download"> 生成Vue组件</el-button>
-        <el-button class="delete-btn" icon="el-icon-delete" type="text" @click="empty"> 清空</el-button>
+        <el-button class="delete-btn" icon="el-icon-delete" type="text" @click="empty"> 清空表单</el-button>
       </div>
       <el-scrollbar class="center-scrollbar">
         <el-row class="center-board-row" :gutter="formConfig.gutter">
@@ -75,20 +73,7 @@
       @tag-change="tagChange"
       @fetch-data="fetchData"
     />
-    <!--    <form-drawer-->
-    <!--      :visible.sync="drawerVisible"-->
-    <!--      :form-data="formData"-->
-    <!--      size="100%"-->
-    <!--      :generate-conf="generateConf"-->
-    <!--    />-->
-    <!--    <json-drawer-->
-    <!--      size="60%"-->
-    <!--      :visible.sync="jsonDrawerVisible"-->
-    <!--      :json-str="JSON.stringify(formData)"-->
-    <!--      @refresh="refreshJson"-->
-    <!--    />-->
     <code-type-dialog :visible.sync="dialogVisible" :show-file-name="showFileName" @confirm="generate" />
-    <!--    <input id="copyNode" type="hidden" />-->
   </div>
 </template>
 
@@ -104,7 +89,7 @@ import { titleCase, deepClone, beautifierConf, isObjectObject } from '@/utils/in
 import { makeUpHtml, vueScript, vueTemplate, cssStyle } from '@/components/generator/html'
 import { makeUpJs } from '@/components/generator/js'
 import { makeUpCss } from '@/components/generator/css'
-import { getIdGlobal, getDrawingList, getFormConf } from '@/utils/db'
+import { getIdGlobal, getDrawingList, getFormConf, saveDrawingList, saveIdGlobal } from '@/utils/db'
 import loadBeautifier from '@/utils/loadBeautifier'
 
 import FormDrawer from '@/views/FormDrawer.vue'
@@ -115,11 +100,10 @@ import DraggableItem from '@/views/DraggableItem.vue'
 import CodeTypeDialog from '@/views/CodeTypeDialog.vue'
 
 const drawingListInDB = getDrawingList()
-
-let tempActiveData, beautifier
-
 const idGlobal = getIdGlobal()
 const formConfInDB = getFormConf()
+
+let tempActiveData, beautifier, oldActiveId
 
 export default {
   name: 'HomeView',
@@ -142,7 +126,9 @@ export default {
       dialogVisible: false,
       showFileName: false,
       operationType: '',
-      generateConf: null
+      generateConf: null,
+      saveDrawingListDebounce: debounce(340, saveDrawingList),
+      saveIdGlobalDebounce: debounce(340, saveIdGlobal)
     }
   },
   mounted() {
@@ -172,6 +158,38 @@ export default {
     clipboard.on('error', e => {
       this.$message.error('代码复制失败')
     })
+  },
+  watch: {
+    // eslint-disable-next-line func-names
+    'activeData.__config__.label': function (val, oldVal) {
+      if (
+        this.activeData.placeholder === undefined ||
+        !this.activeData.__config__.tag ||
+        oldActiveId !== this.activeId
+      ) {
+        return
+      }
+      this.activeData.placeholder = this.activeData.placeholder.replace(oldVal, '') + val
+    },
+    activeId: {
+      handler(val) {
+        oldActiveId = val
+      },
+      immediate: true
+    },
+    drawingList: {
+      handler(val) {
+        this.saveDrawingListDebounce(val)
+        if (val.length === 0) this.idGlobal = 100
+      },
+      deep: true
+    },
+    idGlobal: {
+      handler(val) {
+        this.saveIdGlobalDebounce(val)
+      },
+      immediate: true
+    }
   },
   methods: {
     setLoading(component, val) {

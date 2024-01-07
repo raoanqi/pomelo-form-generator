@@ -7,7 +7,8 @@ module.exports = {
   rules: {
     'no-unused-vars': 'off',
     'vue/no-unused-components': 'off',
-    'vue/multi-word-component-names': 'off'
+    'vue/multi-word-component-names': 'off',
+    'vue/no-mutating-props': 'off'
   },
   parserOptions: {
     parser: 'babel-eslint'
