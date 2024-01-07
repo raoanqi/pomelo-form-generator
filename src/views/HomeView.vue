@@ -61,7 +61,7 @@
                 @deleteItem="drawingItemDelete"
               />
             </draggable>
-            <div v-show="!drawingList.length" class="empty-info">从左侧拖入或点选组件进行表单设计</div>
+            <div v-show="!drawingList.length" class="empty-info">拖拽或点击组件进行配置</div>
           </el-form>
         </el-row>
       </el-scrollbar>
