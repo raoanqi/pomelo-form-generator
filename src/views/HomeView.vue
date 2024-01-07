@@ -2,11 +2,11 @@
   <div class="container">
     <div class="left-board">
       <div class="logo-wrapper">
-        <div class="logo">Pomelo Form Generator</div>
+        <div class="logo">Draggable Form Generator</div>
       </div>
       <el-scrollbar class="left-scrollbar">
         <div class="components-list">
-          <span>组件列表</span>
+          <span>基础组件列表</span>
           <!--list：需要拖放的元素数组-->
           <!--group：实现拖拽元素的同步-->
           <!--end：拖拽结束之后触发的事件-->
@@ -36,31 +36,10 @@
     </div>
     <div class="center-board">
       <div class="action-bar">
-        <el-button icon="el-icon-video-play" type="text" @click="run">
-          运行
-        </el-button>
-        <el-button icon="el-icon-view" type="text" @click="showJson">
-          查看json
-        </el-button>
-        <el-button icon="el-icon-download" type="text" @click="download">
-          导出vue文件
-        </el-button>
-        <el-button
-          class="copy-btn-main"
-          icon="el-icon-document-copy"
-          type="text"
-          @click="copy"
-        >
-          复制代码
-        </el-button>
-        <el-button
-          class="delete-btn"
-          icon="el-icon-delete"
-          type="text"
-          @click="empty"
-        >
-          清空
-        </el-button>
+        <el-button icon="el-icon-video-play" type="text" @click="run"> 在浏览器中运行</el-button>
+        <!--        <el-button icon="el-icon-view" type="text" @click="showJson"> 查看json</el-button>-->
+        <el-button icon="el-icon-download" type="text" @click="download"> 生成Vue组件</el-button>
+        <el-button class="delete-btn" icon="el-icon-delete" type="text" @click="empty"> 清空</el-button>
       </div>
       <el-scrollbar class="center-scrollbar">
         <el-row class="center-board-row" :gutter="formConfig.gutter">
@@ -70,12 +49,7 @@
             :disabled="formConfig.disabled"
             :label-width="`${formConfig.labelWidth}px`"
           >
-            <draggable
-              class="drawing-board"
-              :list="drawingList"
-              :animation="340"
-              group="componentsGroup"
-            >
+            <draggable class="drawing-board" :list="drawingList" :animation="340" group="componentsGroup">
               <draggable-item
                 v-for="(formItem, index) in drawingList"
                 :key="formItem.renderKey"
@@ -89,9 +63,7 @@
                 @deleteItem="drawingItemDelete"
               />
             </draggable>
-            <div v-show="!drawingList.length" class="empty-info">
-              从左侧拖入或点选组件进行表单设计
-            </div>
+            <div v-show="!drawingList.length" class="empty-info">从左侧拖入或点选组件进行表单设计</div>
           </el-form>
         </el-row>
       </el-scrollbar>
@@ -115,12 +87,7 @@
     <!--      :json-str="JSON.stringify(formData)"-->
     <!--      @refresh="refreshJson"-->
     <!--    />-->
-    <!--    <code-type-dialog-->
-    <!--      :visible.sync="dialogVisible"-->
-    <!--      title="选择生成类型"-->
-    <!--      :show-file-name="showFileName"-->
-    <!--      @confirm="generate"-->
-    <!--    />-->
+    <code-type-dialog :visible.sync="dialogVisible" :show-file-name="showFileName" @confirm="generate" />
     <!--    <input id="copyNode" type="hidden" />-->
   </div>
 </template>
@@ -133,14 +100,26 @@ import ClipboardJS from 'clipboard'
 import { supportComponents } from '@/config/supportComponents'
 import { drawingFormItems } from '@/config/drawingFormItems'
 import { formConfig } from '@/config/formConfig'
+import { titleCase, deepClone, beautifierConf, isObjectObject } from '@/utils/index'
+import { makeUpHtml, vueScript, vueTemplate, cssStyle } from '@/components/generator/html'
+import { makeUpJs } from '@/components/generator/js'
+import { makeUpCss } from '@/components/generator/css'
+import { getIdGlobal, getDrawingList, getFormConf } from '@/utils/db'
+import loadBeautifier from '@/utils/loadBeautifier'
 
 import FormDrawer from '@/views/FormDrawer.vue'
 import JsonDrawer from '@/views/JsonDrawer.vue'
 import RightPanel from '@/views/RightPanel.vue'
 import ComponentTypeDialog from '@/views/ComponentTypeDialog.vue'
 import DraggableItem from '@/views/DraggableItem.vue'
+import CodeTypeDialog from '@/views/CodeTypeDialog.vue'
 
-let tempActiveData
+const drawingListInDB = getDrawingList()
+
+let tempActiveData, beautifier
+
+const idGlobal = getIdGlobal()
+const formConfInDB = getFormConf()
 
 export default {
   name: 'HomeView',
@@ -150,17 +129,77 @@ export default {
     JsonDrawer,
     RightPanel,
     ComponentTypeDialog,
-    DraggableItem
+    DraggableItem,
+    CodeTypeDialog
   },
   data() {
     return {
       supportComponents,
       formConfig,
       drawingList: drawingFormItems,
-      activeId: drawingFormItems[0].formId
+      activeId: drawingFormItems[0].formId,
+      activeData: drawingFormItems[0],
+      dialogVisible: false,
+      showFileName: false,
+      operationType: '',
+      generateConf: null
     }
   },
+  mounted() {
+    if (Array.isArray(drawingListInDB) && drawingListInDB.length > 0) {
+      this.drawingList = drawingListInDB
+    } else {
+      this.drawingList = drawingFormItems
+    }
+    this.activeFormItem(this.drawingList[0])
+    if (formConfInDB) {
+      this.formConf = formConfInDB
+    }
+    loadBeautifier(btf => {
+      beautifier = btf
+    })
+    const clipboard = new ClipboardJS('#copyNode', {
+      text: trigger => {
+        const codeStr = this.generateCode()
+        this.$notify({
+          title: '成功',
+          message: '代码已复制到剪切板，可粘贴。',
+          type: 'success'
+        })
+        return codeStr
+      }
+    })
+    clipboard.on('error', e => {
+      this.$message.error('代码复制失败')
+    })
+  },
   methods: {
+    setLoading(component, val) {
+      const { directives } = component
+      if (Array.isArray(directives)) {
+        const t = directives.find(d => d.name === 'loading')
+        if (t) t.value = val
+      }
+    },
+    setRespData(component, resp) {
+      const { dataPath, renderKey, dataConsumer } = component.__config__
+      if (!dataPath || !dataConsumer) return
+      const respData = dataPath.split('.').reduce((pre, item) => pre[item], resp)
+      this.setObjectValueReduce(component, dataConsumer, respData)
+      const i = this.drawingList.findIndex(item => item.__config__.renderKey === renderKey)
+      if (i > -1) this.$set(this.drawingList, i, component)
+    },
+    setObjectValueReduce(obj, strKeys, data) {
+      const arr = strKeys.split('.')
+      arr.reduce((pre, item, i) => {
+        if (arr.length === i + 1) {
+          pre[item] = data
+        } else if (!isObjectObject(pre[item])) {
+          pre[item] = {}
+        }
+        return pre[item]
+      }, obj)
+    },
     fetchData(component) {
       const { dataType, method, url } = component.__config__
       if (dataType === 'dynamic' && method && url) {
@@ -202,9 +241,7 @@ export default {
         delete config.label // rowFormItem无需配置label属性
       }
       if (Array.isArray(config.children)) {
-        config.children = config.children.map(childItem =>
-          this.createIdAndKey(childItem)
-        )
+        config.children = config.children.map(childItem => this.createIdAndKey(childItem))
       }
       return item
     },
@@ -233,6 +270,79 @@ export default {
           this.activeFormItem(this.drawingList[len - 1])
         }
       })
+    },
+    run() {
+      this.dialogVisible = true
+      this.showFileName = false
+      this.operationType = 'run'
+    },
+    download() {
+      this.dialogVisible = true
+      this.showFileName = true
+      this.operationType = 'download'
+    },
+    async empty() {
+      try {
+        await this.$confirm('您正准备清空所有表单项，是否继续？', '确认', { type: 'warning' })
+        this.drawingList = []
+        this.idGlobal = 100
+      } catch (error) {
+        return
+      }
+    },
+    generate(data) {
+      const func = this[`exec${titleCase(this.operationType)}`]
+      this.generateConf = data
+      func && func(data)
+    },
+    execDownload(data) {
+      const codeStr = this.generateCode()
+      const blob = new Blob([codeStr], { type: 'text/plain;charset=utf-8' })
+      saveAs(blob, data.fileName)
+    },
+    generateCode() {
+      const { type } = this.generateConf
+      this.AssembleFormData()
+      const script = vueScript(makeUpJs(this.formData, type))
+      const html = vueTemplate(makeUpHtml(this.formData, type))
+      const css = cssStyle(makeUpCss(this.formData))
+      return beautifier.html(html + script + css, beautifierConf.html)
+    },
+    AssembleFormData() {
+      this.formData = {
+        fields: deepClone(this.drawingList),
+        ...this.formConf
+      }
+    },
+    tagChange(newTag) {
+      newTag = this.cloneComponent(newTag)
+      const config = newTag.__config__
+      newTag.__vModel__ = this.activeData.__vModel__
+      config.formId = this.activeId
+      config.span = this.activeData.__config__.span
+      this.activeData.__config__.tag = config.tag
+      this.activeData.__config__.tagIcon = config.tagIcon
+      this.activeData.__config__.document = config.document
+      if (typeof this.activeData.__config__.defaultValue === typeof config.defaultValue) {
+        config.defaultValue = this.activeData.__config__.defaultValue
+      }
+      Object.keys(newTag).forEach(key => {
+        if (this.activeData[key] !== undefined) {
+          newTag[key] = this.activeData[key]
+        }
+      })
+      this.activeData = newTag
+      this.updateDrawingList(newTag, this.drawingList)
+    },
+    updateDrawingList(newTag, list) {
+      const index = list.findIndex(item => item.__config__.formId === this.activeId)
+      if (index > -1) {
+        list.splice(index, 1, newTag)
+      } else {
+        list.forEach(item => {
+          if (Array.isArray(item.__config__.children)) this.updateDrawingList(newTag, item.__config__.children)
+        })
+      }
     }
   }
 }
