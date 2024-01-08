@@ -128,6 +128,7 @@ export default {
       operationType: '',
       generateConf: null,
       saveDrawingListDebounce: debounce(340, saveDrawingList),
+      idGlobal,
       saveIdGlobalDebounce: debounce(340, saveIdGlobal)
     }
   },

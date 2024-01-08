@@ -572,8 +572,8 @@
 
 <script>
 import TreeNodeDialog from '@/views/TreeNodeDialog'
-import { isNumberStr, isArray } from '@/utils/index'
 import IconsDialog from './IconsDialog'
+import { isNumberStr, isArray } from '@/utils/index'
 import { inputComponents, selectComponents, layoutComponents } from '@/components/generator/config'
 import { saveFormConf } from '@/utils/db'
 
