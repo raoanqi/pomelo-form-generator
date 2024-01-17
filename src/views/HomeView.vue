@@ -6,15 +6,15 @@
       </div>
       <el-scrollbar class="left-scrollbar">
         <div class="components-list">
-          <span>基础组件列表</span>
+          <span>原子组件列表</span>
           <!--list：需要拖放的元素数组-->
           <!--group：实现拖拽元素的同步-->
+          <!--draggable：-->
           <!--end：拖拽结束之后触发的事件-->
           <draggable
             class="components-draggable"
             :list="supportComponents"
             :group="{ name: 'componentsGroup', pull: 'clone', put: false }"
-            :clone="cloneComponent"
             draggable=".components-item"
             :sort="false"
             @end="onEnd"
